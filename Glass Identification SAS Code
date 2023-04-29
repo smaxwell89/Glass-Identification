@@ -1,0 +1,121 @@
+Multivariate Normality
+%inc \\tsclient\C\Users\cmoran\Desktop\multnorm.sas;
+data glass7;
+set glass;
+if GlassType=7;
+run;
+%multnorm(data=glass7,var=Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron,plot=mult)
+Equality of Covariance Matrices
+proc discrim pool=test data=glass;
+class GlassType;
+var Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron;
+run;
+One Way MANOVA – All vars included
+proc glm data=glass;
+class GlassType;
+model Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron = GlassType;
+manova h=GlassType / printe printh;
+run;
+One Way MANOVA with Contrasts for Windows vs Non-Windows – 1 & 2 & 3 & 4 vs 4 & 6 & 7
+proc glm data=glass;
+class GlassType;
+model Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron = GlassType;
+contrast '1 & 2 & 3 & 4 (Windows) vs 5 & 6 & 7 (Non-Windows)' GlassType 0.33 0.33 0.33 -0.33 -0.33 -0.33;
+manova h=GlassType / printe printh;
+run;
+One Way MANOVA with Contrasts for Float Processed vs Non-Float Processed– 1 & 3 vs 2 & 4
+proc glm data=glass;
+class GlassType;
+model Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron = GlassType;
+contrast '1 & 3 (Float Processed) vs 2 & 4 (Non-Float Processed)' GlassType 0.5 -1.0 0.5;
+manova h=GlassType / printe printh;
+run;
+One Way MANOVA with Contrasts for Building vs Vehicle– 1 & 2 vs 3 & 4
+proc glm data=glass;
+class GlassType;
+model Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron = GlassType;
+contrast '1 & 2 (Building) vs 3 & 4 (Vehicle)' GlassType 0.5 0.5 -1.0;
+manova h=GlassType / printe printh;
+run;
+
+Discriminant Analysis
+/*Create Window and Non-Window Groups in new dataset glasswind*/
+data glasswind;
+set glass;
+if Type=1 then TypeGrp='Window';
+if Type=2 then TypeGrp='Window';
+if Type=3 then TypeGrp='Window';
+if Type=5 then TypeGrp='Non-Window';
+if Type=6 then TypeGrp='Non-Window';
+if Type=7 then TypeGrp='Non-Window';
+run;
+/*Obtain frequencies for priors*/
+proc freq data=glasswind;
+tables TypeGrp;
+run;
+/*Discriminant Analysis for Window vs. Non-Window*/
+proc discrim data=glasswind pool=test;
+class Typegrp;
+var Ri Na Mg Al Si K Ca Ba Fe;
+priors 'Non-Wi'=0.238 'Window'=0.762;
+run;
+
+
+/*Remove Non-Window data in new dataset glass2*/
+data glass2;
+set glass;
+if Type ne 5;
+if Type ne 6;
+if Type ne 7;
+run;
+
+/*Create Float and Non-Float Groups in new dataset glassfnf*/
+data glassfnf;
+set glass2;
+if Type=1 then TypeGrp='Float';
+if Type=3 then TypeGrp='Float';
+if Type=2 then TypeGrp='Non-Float';
+run;
+/*Obtain frequencies for priors*/
+proc freq data=glassfnf;
+tables TypeGrp;
+run;
+/*Discriminant Analysis for Float vs. Non-Float*/
+proc discrim data=glassfnf pool=test;
+class TypeGrp;
+var Ri Na Mg Al Si K Ca Ba Fe;
+priors 'Non-F'=0.466 'Float'=0.534;
+run;
+
+/*Create Building and Vehicle Groups in new dataset glassbv*/
+data glassbv;
+set glass2;
+if Type=1 then TypeGrp='Building';
+if Type=2 then TypeGrp='Building';
+if Type=3 then TypeGrp='Vehicle';
+run;
+/*Obtain frequencies for priors*/
+proc freq data=glassbv;
+tables TypeGrp;
+run;
+/*Discriminant Analysis for Building vs. Vehicle*/
+proc discrim data=glassbv pool=test;
+class Typegrp;
+var Ri Na Mg Al Si K Ca Ba Fe;
+priors 'Vehicle'=0.104 'Building'=0.896;
+run;
+/*Obtain frequencies for prior probabilities*/
+proc freq data=glass;
+tables GlassType;
+run;
+/*Discriminant Analysis with test for equal covariance matrices using prior probabilities and the resubstitution method. This also creates a data set of the calibration information to be used for classifying additional observations*/
+proc discrim data=glass method=normal outstat=glassstat pool=test;
+class GlassType;
+priors '1'=0.332 '2'=0.361 '3'=0.077 '5'=0.058 '6'=0.039 '7'=0.135;
+var Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron;
+run;
+/*Classification of new observations*/
+proc discrim data=glassstat testdata=glasstest testout=tout2 testlist;
+class GlassType;
+var Ref_Index Sodium Magnesium Aluminum Silicon Potassium Calcium Barium Iron;
+run;
